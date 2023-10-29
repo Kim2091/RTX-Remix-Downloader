@@ -1,5 +1,5 @@
 name: 'Build release'
-on: workflow_dispatch
+on:
     push:
         tags:
             - "*"
