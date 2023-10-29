@@ -1,8 +1,5 @@
 name: 'Build release'
-on:
-    push:
-        tags:
-            - "*"
+on: workflow_dispatch
 
 permissions:
     contents: write
