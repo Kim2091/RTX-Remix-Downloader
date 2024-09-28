@@ -58,12 +58,6 @@ args.build_type = get_build_type()
 print(f"Downloading {args.build_type} builds")
 
 REPOSITORIES = {
-    "NVIDIAGameWorks/rtx-remix": {
-        "repo_type": "release",
-        "move_to": None,
-        "temp_dir": None,
-        "main_directory": True,
-    },
     "NVIDIAGameWorks/dxvk-remix": {
         "repo_type": "artifact",
         "move_to": ".trex",  # Move this to a special subdirectory
@@ -75,10 +69,17 @@ REPOSITORIES = {
         "repo_type": "artifact",
         "move_to": None,  # Move this to the root of the temp directory
         "temp_dir": None,
-        "main_directory": False,
+        "main_directory": True,
         "artifact_branch": "main",
     },
 }
+
+LICENSES = [
+    ("LICENSE.txt", "https://raw.githubusercontent.com/NVIDIAGameWorks/rtx-remix/refs/heads/main/LICENSE.txt"),
+    ("ThirdPartyLicenses-dxvk.txt", "https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/refs/heads/main/ThirdPartyLicenses.txt"),
+    ("ThirdPartyLicenses-bridge.txt", "https://raw.githubusercontent.com/NVIDIAGameWorks/bridge-remix/refs/heads/main/ThirdPartyLicenses.txt"),
+    ("ThirdPartyLicenses-d3d8to9.txt", "https://raw.githubusercontent.com/crosire/d3d8to9/refs/heads/main/LICENSE.md")
+]
 
 HTTP = httpx.Client(
     headers={
@@ -148,12 +149,12 @@ def fetch_release(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirectory
     zipfile.ZipFile(path.joinpath(f"{json['name']}.zip")).extractall(path)
     path.joinpath(f"{json['name']}.zip").unlink()
 
-    return temp_dir
+    # Move the contents of the zip to the root of the temp directory.
+    child_path = next(path.iterdir())
+    replace_recursively(child_path, path)
+    child_path.rmdir()
 
-def download_file(url: str, destination: Path) -> None:
-    """Downloads a file from the specified URL and saves it to the destination path."""
-    response = HTTP.get(url)
-    destination.write_bytes(response.content)
+    return temp_dir
 
 
 def fetch_artifact(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirectory:
@@ -200,16 +201,20 @@ def fetch_artifact(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirector
 
     PROGRESS.print(f"Extracting latest artifact from [bold blue]{repo}[/bold blue]")
     PROGRESS.advance(STEP_COUNTER)
-
     zipfile.ZipFile(path.joinpath(f"{artifact_name}.zip")).extractall(path)
     path.joinpath(f"{artifact_name}.zip").unlink()
 
-    # Download the bridge.conf file only for the bridge-remix repository
-    if repo == "NVIDIAGameWorks/bridge-remix":
-        download_file("https://raw.githubusercontent.com/NVIDIAGameWorks/bridge-remix/main/bridge.conf", path.joinpath('.trex', 'bridge.conf'))
-
     return temp_dir
 
+def pull_licenses(path: Path):
+    PROGRESS.print("Downloading license files")
+    for filename, download_url in LICENSES:
+        with open(path.joinpath(filename), "wb") as f:
+            with HTTP.stream(
+                "GET", download_url, timeout=30, follow_redirects=True
+            ) as resp:
+                for data in resp.iter_bytes():
+                    f.write(data)
 
 def main() -> None:
     """Main loop"""
@@ -274,6 +279,7 @@ def main() -> None:
         final_path = Path(sys.argv[0]).parent.joinpath("remix")
         final_path.mkdir(exist_ok=True)
         replace_recursively(main_directory, final_path)
+        pull_licenses(final_path)
         
         # Print the names of the downloaded packages
         print("Downloaded the following packages:")
@@ -284,13 +290,12 @@ def main() -> None:
         with open(final_path.joinpath('build_names.txt'), 'w') as f:
             for name in BUILD_NAMES:
                 f.write(f'{name}\n')
-                
+        
         # Download the dxvk.conf file
         PROGRESS.print('Downloading dxvk.conf')
         PROGRESS.advance(STEP_COUNTER)
         download_file('https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/main/dxvk.conf', final_path.joinpath('dxvk.conf'))
-
-
+        
         # Cleanup the temp dirs
         PROGRESS.print("Cleaning up temporary directories")
         PROGRESS.advance(STEP_COUNTER)
