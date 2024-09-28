@@ -54,7 +54,6 @@ args = argparse.Namespace()
 args.debug = False  # or True if you want to enable debug by default
 args.build_type = get_build_type()
 
-
 print(f"Downloading {args.build_type} builds")
 
 REPOSITORIES = {
@@ -73,6 +72,14 @@ REPOSITORIES = {
         "artifact_branch": "main",
     },
 }
+
+ADDITIONAL_FILES = [
+    {
+        "name": "dxvk.conf",
+        "url": "https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/main/dxvk.conf",
+        "destination": "",  # Empty string means it goes to the root of the final directory
+    },
+]
 
 LICENSES = [
     ("LICENSE.txt", "https://raw.githubusercontent.com/NVIDIAGameWorks/rtx-remix/refs/heads/main/LICENSE.txt"),
@@ -98,12 +105,10 @@ PROGRESS = Progress(
     TextColumn("[bold blue] {task.completed} of {task.total} steps completed"),
     console=CONSOLE,
 )
-STEP_COUNTER = PROGRESS.add_task("Steps", total=len(REPOSITORIES) * 2 + 5)
-
+STEP_COUNTER = PROGRESS.add_task("Steps", total=len(REPOSITORIES) * 2 + len(ADDITIONAL_FILES) + 5)
 
 class HiddenPrompt(Prompt):
     prompt_suffix = ""
-
 
 def replace_recursively(root_path: Path, move_to: Path) -> None:
     """Recursively replaces a directory with its contents while preserving the directory structure"""
@@ -118,7 +123,6 @@ def replace_recursively(root_path: Path, move_to: Path) -> None:
             move_to.joinpath(child.name).mkdir(exist_ok=True)
             replace_recursively(child, move_to.joinpath(child.name))
             child.rmdir()
-
 
 def fetch_release(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirectory:
     """Fetches the latest release from a repository"""
@@ -156,7 +160,6 @@ def fetch_release(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirectory
 
     return temp_dir
 
-
 def fetch_artifact(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirectory:
     """Fetches the latest artifact from a repository"""
     path = Path(temp_dir.name)
@@ -186,7 +189,6 @@ def fetch_artifact(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirector
             BUILD_NAMES.append(artifact_name)
             break
 
-
     PROGRESS.print(f"Downloading latest artifact from [bold blue]{repo}[/bold blue]")
     PROGRESS.advance(STEP_COUNTER)
     with open(path.joinpath(f"{artifact_name}.zip"), "wb") as f:
@@ -215,6 +217,19 @@ def pull_licenses(path: Path):
             ) as resp:
                 for data in resp.iter_bytes():
                     f.write(data)
+
+def fetch_additional_files(path: Path):
+    PROGRESS.print("Downloading additional files")
+    for file in ADDITIONAL_FILES:
+        dest_path = path.joinpath(file["destination"], file["name"])
+        with open(dest_path, "wb") as f:
+            with HTTP.stream(
+                "GET", file["url"], timeout=30, follow_redirects=True
+            ) as resp:
+                for data in resp.iter_bytes():
+                    f.write(data)
+        PROGRESS.print(f"Downloaded {file['name']}")
+        PROGRESS.advance(STEP_COUNTER)
 
 def main() -> None:
     """Main loop"""
@@ -279,6 +294,11 @@ def main() -> None:
         final_path = Path(sys.argv[0]).parent.joinpath("remix")
         final_path.mkdir(exist_ok=True)
         replace_recursively(main_directory, final_path)
+
+        # Download additional files
+        fetch_additional_files(final_path)
+        
+        # Download license files
         pull_licenses(final_path)
         
         # Print the names of the downloaded packages
@@ -290,11 +310,6 @@ def main() -> None:
         with open(final_path.joinpath('build_names.txt'), 'w') as f:
             for name in BUILD_NAMES:
                 f.write(f'{name}\n')
-        
-        # Download the dxvk.conf file
-        PROGRESS.print('Downloading dxvk.conf')
-        PROGRESS.advance(STEP_COUNTER)
-        download_file('https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/main/dxvk.conf', final_path.joinpath('dxvk.conf'))
         
         # Cleanup the temp dirs
         PROGRESS.print("Cleaning up temporary directories")
@@ -319,7 +334,6 @@ def main() -> None:
         "\n"
         "Press [bold]Enter[/bold] to close this window..."
     )
-
 
 if __name__ == "__main__":
     if args.debug is True:
