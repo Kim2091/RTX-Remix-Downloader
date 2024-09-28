@@ -105,7 +105,7 @@ PROGRESS = Progress(
     TextColumn("[bold blue] {task.completed} of {task.total} steps completed"),
     console=CONSOLE,
 )
-STEP_COUNTER = PROGRESS.add_task("Steps", total=len(REPOSITORIES) * 2 + len(ADDITIONAL_FILES) + 5)
+STEP_COUNTER = PROGRESS.add_task("Steps", total=len(REPOSITORIES) * 2 + len(ADDITIONAL_FILES) + 4)
 
 class HiddenPrompt(Prompt):
     prompt_suffix = ""
