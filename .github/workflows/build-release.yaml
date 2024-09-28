@@ -1,20 +1,16 @@
-name: 'Build release'
+name: 'Build and Upload'
 on:
     push:
         branches:
-            - "kamil-patch"
-        tags:
-            - "*"
-
-permissions:
-    contents: write
+            - "kamil-patch"  # You can add more branches here if needed
 
 jobs:
-    build_release:
-        name: 'Build release'
+    build_and_upload:
+        name: 'Build and Upload'
         runs-on: windows-latest
         steps:
-            - uses: actions/checkout@v4
+            - name: Checkout code
+              uses: actions/checkout@v4
 
             - name: Set up Python
               uses: actions/setup-python@v5
@@ -30,10 +26,20 @@ jobs:
               run: |
                 pyinstaller --onefile -i NONE -n "RTX Remix Downloader" ./main.py
 
-            - name: Release
-              uses: softprops/action-gh-release@v1
-              if: startsWith(github.ref, 'refs/tags/')
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
               with:
-                generate_release_notes: true
-                files: |
-                  ./dist/RTX Remix Downloader.exe
+                name: RTX-Remix-Downloader
+                path: ./dist/RTX Remix Downloader.exe
+                if-no-files-found: error
+
+            - name: Get commit hash
+              id: commit
+              run: echo "hash=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+            - name: Upload to release
+              uses: softprops/action-gh-release@v1
+              with:
+                tag_name: ${{ steps.commit.outputs.hash }}
+                files: ./dist/RTX Remix Downloader.exe
+                generate_release_notes: false
