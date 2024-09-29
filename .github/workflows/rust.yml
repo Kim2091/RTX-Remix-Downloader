@@ -27,9 +27,23 @@ jobs:
         toolchain: ${{ matrix.rust }}
         override: true
         components: rustfmt, clippy
+
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
     
     - name: Build
       run: cargo build --verbose --release
+
+    - name: Set build status
+      run: echo "build_status=success" >> $GITHUB_OUTPUT
     
     - name: Run tests
       run: cargo test --verbose
@@ -43,8 +57,12 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: rtx_remix_downloader-${{ matrix.os }}
-        path: |
-          target/release/rtx_remix_downloader
-          target/release/rtx_remix_downloader.exe
-        if-no-files-found: ignore
+        name: rtx_remix_downloader
+        path: target/release/rtx_remix_downloader.exe
+        if-no-files-found: error
+        compression-level: 0
+
+    - name: Build Summary
+      run: |
+        echo "Build completed successfully" >> $GITHUB_STEP_SUMMARY
+        echo "Artifact: rtx_remix_downloader" >> $GITHUB_STEP_SUMMARY
