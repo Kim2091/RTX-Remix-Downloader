@@ -41,8 +41,18 @@ fn main() -> Result<()> {
     let client = Client::builder()
         .user_agent("RTX Remix Downloader")
         .build()?;
-    let final_path = PathBuf::from("remix").canonicalize()?;
-    fs::create_dir_all(&final_path)?;
+
+    // Create the "remix" folder in the current working directory
+    let remix_path = PathBuf::from("remix");
+    fs::create_dir_all(&remix_path)?;
+
+    // Get the canonicalized path
+    let final_path = remix_path.canonicalize()?;
+
+    println!(
+        "{}",
+        format!("Created remix folder: {}", clickable_path(&final_path)).green()
+    );
 
     for &(repo, subfolder) in &REPOSITORIES {
         match fetch_artifact(&client, repo, build_type) {
