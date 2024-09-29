@@ -124,41 +124,6 @@ def replace_recursively(root_path: Path, move_to: Path) -> None:
             replace_recursively(child, move_to.joinpath(child.name))
             child.rmdir()
 
-def fetch_release(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirectory:
-    """Fetches the latest release from a repository"""
-    path = Path(temp_dir.name)
-
-    PROGRESS.print(
-        f"Fetching the latest release info from [bold blue]{repo}[/bold blue]"
-    )
-    resp = HTTP.get(f"https://api.github.com/repos/{repo}/releases/latest")
-    json = resp.json()
-
-    for asset in json["assets"]:
-        if "symbols" not in asset["name"]:
-            download_url = asset["browser_download_url"]
-            size = asset["size"]
-
-    PROGRESS.print(f"Downloading latest release from [bold blue]{repo}[/bold blue]")
-    PROGRESS.advance(STEP_COUNTER)
-    with open(path.joinpath(f"{json['name']}.zip"), "wb") as f:
-        with HTTP.stream(
-            "GET", download_url, timeout=30, follow_redirects=True
-        ) as resp:
-            for data in resp.iter_bytes():
-                f.write(data)
-
-    PROGRESS.print(f"Extracting latest release from [bold blue]{repo}[/bold blue]")
-    PROGRESS.advance(STEP_COUNTER)
-    zipfile.ZipFile(path.joinpath(f"{json['name']}.zip")).extractall(path)
-    path.joinpath(f"{json['name']}.zip").unlink()
-
-    # Move the contents of the zip to the root of the temp directory.
-    child_path = next(path.iterdir())
-    replace_recursively(child_path, path)
-    child_path.rmdir()
-
-    return temp_dir
 
 def fetch_artifact(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirectory:
     """Fetches the latest artifact from a repository"""
@@ -247,11 +212,7 @@ def main() -> None:
 
     with PROGRESS:
         for repo, data in REPOSITORIES.items():
-            if data["repo_type"] == "release":
-                data["temp_dir"] = fetch_release(
-                    repo, TemporaryDirectory(prefix="RTXREMIX-")
-                )
-            elif data["repo_type"] == "artifact":
+            if data["repo_type"] == "artifact":
                 data["temp_dir"] = fetch_artifact(
                     repo, TemporaryDirectory(prefix="RTXREMIX-")
                 )
