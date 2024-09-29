@@ -87,6 +87,11 @@ fn main() -> Result<()> {
         "https://github.com/NVIDIAGameWorks/rtx-remix/wiki/runtime-user-guide".cyan()
     );
 
+    // Add this new section to keep the console open
+    println!("\nPress Enter to exit...");
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
     Ok(())
 }
 
