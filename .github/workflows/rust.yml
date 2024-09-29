@@ -19,7 +19,7 @@ jobs:
         rust: [stable]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     
     - name: Install Rust ${{ matrix.rust }}
       uses: actions-rs/toolchain@v1
