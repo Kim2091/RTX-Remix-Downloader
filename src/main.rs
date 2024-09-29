@@ -238,7 +238,11 @@ fn cleanup_debug_files(dir: &Path) -> Result<()> {
     if removed_files > 0 {
         println!(
             "{}",
-            format!("Cleaned up {} debugging symbol files", removed_files).cyan()
+            format!(
+                "Cleaned up {} debugging symbol files and unnecessary files",
+                removed_files
+            )
+            .cyan()
         );
     }
     Ok(())
@@ -248,18 +252,22 @@ fn cleanup_debug_files_recursive(dir: &Path, removed_files: &mut u32) -> Result<
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
+
         if path.is_dir() {
             cleanup_debug_files_recursive(&path, removed_files)?;
-        } else if let Some(extension) = path.extension() {
-            if extension == "pdb" {
-                fs::remove_file(&path)?;
-                *removed_files += 1;
+        } else {
+            let file_name = path.file_name().unwrap_or_default().to_string_lossy();
+
+            if path.extension().map_or(false, |ext| ext == "pdb")
+                || file_name == "CRC.txt"
+                || file_name == "artifacts_readme.txt"
+            {
+                if let Err(e) = fs::remove_file(&path) {
+                    eprintln!("Failed to remove file {}: {}", path.display(), e);
+                } else {
+                    *removed_files += 1;
+                }
             }
-        } else if path.file_name().unwrap() == "CRC.txt"
-            || path.file_name().unwrap() == "artifacts_readme.txt"
-        {
-            fs::remove_file(&path)?;
-            *removed_files += 1;
         }
     }
     Ok(())
