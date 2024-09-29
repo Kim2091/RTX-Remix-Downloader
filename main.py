@@ -85,7 +85,7 @@ LICENSES = [
     ("LICENSE.txt", "https://raw.githubusercontent.com/NVIDIAGameWorks/rtx-remix/refs/heads/main/LICENSE.txt"),
     ("ThirdPartyLicenses-dxvk.txt", "https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/refs/heads/main/ThirdPartyLicenses.txt"),
     ("ThirdPartyLicenses-bridge.txt", "https://raw.githubusercontent.com/NVIDIAGameWorks/bridge-remix/refs/heads/main/ThirdPartyLicenses.txt"),
-    ("ThirdPartyLicenses-d3d8to9.txt", "https://raw.githubusercontent.com/crosire/d3d8to9/refs/heads/main/LICENSE.md")
+    ("ThirdPartyLicenses-dxwrapper.txt", "https://raw.githubusercontent.com/elishacloud/dxwrapper/refs/heads/master/License.txt")
 ]
 
 HTTP = httpx.Client(
@@ -105,7 +105,7 @@ PROGRESS = Progress(
     TextColumn("[bold blue] {task.completed} of {task.total} steps completed"),
     console=CONSOLE,
 )
-STEP_COUNTER = PROGRESS.add_task("Steps", total=len(REPOSITORIES) * 2 + len(ADDITIONAL_FILES) + 4)
+STEP_COUNTER = PROGRESS.add_task("Steps", total=len(REPOSITORIES) * 2 + len(ADDITIONAL_FILES) + 5)
 
 class HiddenPrompt(Prompt):
     prompt_suffix = ""
@@ -123,7 +123,6 @@ def replace_recursively(root_path: Path, move_to: Path) -> None:
             move_to.joinpath(child.name).mkdir(exist_ok=True)
             replace_recursively(child, move_to.joinpath(child.name))
             child.rmdir()
-
 
 def fetch_artifact(repo: str, temp_dir: TemporaryDirectory) -> TemporaryDirectory:
     """Fetches the latest artifact from a repository"""
@@ -196,14 +195,42 @@ def fetch_additional_files(path: Path):
         PROGRESS.print(f"Downloaded {file['name']}")
         PROGRESS.advance(STEP_COUNTER)
 
+def download_and_extract_dx8_binaries(final_path: Path):
+    PROGRESS.print("Downloading dx8 binaries")
+    dx8_url = "https://nightly.link/elishacloud/dxwrapper/workflows/ci/master/dx8%20binaries.zip"
+    dx8_zip_path = final_path / "dx8_binaries.zip"
+
+    with open(dx8_zip_path, "wb") as f:
+        with HTTP.stream("GET", dx8_url, timeout=30, follow_redirects=True) as resp:
+            for data in resp.iter_bytes():
+                f.write(data)
+
+    PROGRESS.print("Extracting dx8 binaries")
+    with zipfile.ZipFile(dx8_zip_path, 'r') as zip_ref:
+        zip_ref.extractall(final_path)
+
+    PROGRESS.print("Renaming d3d8.dll")
+    d3d8_path = final_path / "d3d8.dll"
+    if d3d8_path.exists():
+        new_name = "d3d8_off.dll"
+        d3d8_path.rename(final_path / new_name)
+        PROGRESS.print(f"Renamed d3d8.dll to {new_name}")
+    else:
+        PROGRESS.print("d3d8.dll not found in the extracted files")
+
+    PROGRESS.print("Cleaning up dx8 binaries zip file")
+    dx8_zip_path.unlink()
+
+    PROGRESS.advance(STEP_COUNTER)
+
 def main() -> None:
     """Main loop"""
     HiddenPrompt.ask(
         "[b]RTX Remix Download Script[/b]\n"
-        "This script requests the latest artifact builds from the official Github repositories.\n"
+        "This script requests the latest artifacts/builds from the official RTX Remix repositories on GitHub.\n"
         "This downloads the file in the same location as the script, unzips and cleans up after itself.\n"
         "Find us on Discord: [blue]https://discord.gg/rtxremix[/blue]\n"
-        "[i]This script is not affiliated with NVIDIA or the RTXRemix project.[/i]\n"
+        "[i]This script is not affiliated with NVIDIA or the RTX Remix project.[/i]\n"
         "\n"
         "Press Enter to continue...",
         password=True,
@@ -262,15 +289,20 @@ def main() -> None:
         # Download license files
         pull_licenses(final_path)
         
+        # Download and extract dx8 binaries
+        download_and_extract_dx8_binaries(final_path)
+
         # Print the names of the downloaded packages
         print("Downloaded the following packages:")
         for name in BUILD_NAMES:
             print(name)
+        print("dx8 binaries")
             
         # Write build names to a text file
         with open(final_path.joinpath('build_names.txt'), 'w') as f:
             for name in BUILD_NAMES:
                 f.write(f'{name}\n')
+            f.write('dx8 binaries\n')
         
         # Cleanup the temp dirs
         PROGRESS.print("Cleaning up temporary directories")
