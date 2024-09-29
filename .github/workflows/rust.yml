@@ -2,7 +2,7 @@ name: Rust CI
 
 on:
   push:
-    branches: [ rust ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-    name: Build and Test
+    name: Build and Release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -54,15 +54,12 @@ jobs:
     - name: Check formatting
       run: cargo fmt -- --check
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: rtx_remix_downloader
-        path: target/release/rtx_remix_downloader.exe
-        if-no-files-found: error
-        compression-level: 0
+    - name: Rename executable
+      run: mv target/release/rtx_remix_downloader.exe "RTX Remix Downloader.exe"
 
-    - name: Build Summary
-      run: |
-        echo "Build completed successfully" >> $GITHUB_STEP_SUMMARY
-        echo "Artifact: rtx_remix_downloader" >> $GITHUB_STEP_SUMMARY
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: false
+        files: |
+          ./RTX Remix Downloader.exe
