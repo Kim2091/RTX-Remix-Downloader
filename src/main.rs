@@ -13,11 +13,18 @@ const REPOSITORIES: [(&str, &str); 2] = [
     ("NVIDIAGameWorks/dxvk-remix", ".trex"),
     ("NVIDIAGameWorks/bridge-remix", ""),
 ];
-const ADDITIONAL_FILES: [(&str, &str, &str); 1] = [(
-    "dxvk.conf",
-    "https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/main/dxvk.conf",
-    "",
-)];
+const ADDITIONAL_FILES: [(&str, &str, &str); 2] = [
+    (
+        "dxvk.conf",
+        "https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/main/dxvk.conf",
+        "",
+    ),
+    (
+        "bridge.conf",
+        "https://raw.githubusercontent.com/NVIDIAGameWorks/bridge-remix/refs/heads/main/bridge.conf",
+        ".trex",
+    ),
+];
 const LICENSES: [(&str, &str); 4] = [
     ("LICENSE.txt", "https://raw.githubusercontent.com/NVIDIAGameWorks/rtx-remix/refs/heads/main/LICENSE.txt"),
     ("ThirdPartyLicenses-dxvk.txt", "https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/refs/heads/main/ThirdPartyLicenses.txt"),
