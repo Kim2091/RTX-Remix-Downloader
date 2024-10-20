@@ -61,6 +61,8 @@ fn main() -> Result<()> {
         format!("Created remix folder: {}", clickable_path(&final_path)).green()
     );
 
+    let mut build_names = Vec::new();
+
     for &(repo, subfolder) in &REPOSITORIES {
         match fetch_artifact(&client, repo, build_type) {
             Ok(artifact) => {
@@ -71,6 +73,8 @@ fn main() -> Result<()> {
                         "{}",
                         format!("Error downloading/extracting artifact: {}", e).red()
                     );
+                } else {
+                    build_names.push(artifact.0.clone());
                 }
             }
             Err(e) => eprintln!(
@@ -79,6 +83,9 @@ fn main() -> Result<()> {
             ),
         }
     }
+
+    // Write build names to file
+    write_build_names(&final_path, &build_names)?;
 
     download_additional_files(&client, &final_path)?;
     download_licenses(&client, &final_path)?;
@@ -305,6 +312,17 @@ fn download_and_extract_dx8_binaries(client: &Client, final_path: &Path) -> Resu
     println!("{}", "Cleaning up dx8 binaries zip file".cyan());
     fs::remove_file(dx8_zip_path)?;
 
+    Ok(())
+}
+
+
+fn write_build_names(final_path: &Path, build_names: &[String]) -> Result<()> {
+    let build_names_path = final_path.join("build-names.txt");
+    let mut file = fs::File::create(&build_names_path)?;
+    for name in build_names {
+        writeln!(file, "{}", name)?;
+    }
+    println!("{}", format!("Created build-names.txt with {} build names", build_names.len()).green());
     Ok(())
 }
 
