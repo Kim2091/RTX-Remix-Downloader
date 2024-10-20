@@ -315,14 +315,20 @@ fn download_and_extract_dx8_binaries(client: &Client, final_path: &Path) -> Resu
     Ok(())
 }
 
-
 fn write_build_names(final_path: &Path, build_names: &[String]) -> Result<()> {
     let build_names_path = final_path.join("build-names.txt");
     let mut file = fs::File::create(&build_names_path)?;
     for name in build_names {
         writeln!(file, "{}", name)?;
     }
-    println!("{}", format!("Created build-names.txt with {} build names", build_names.len()).green());
+    println!(
+        "{}",
+        format!(
+            "Created build-names.txt with {} build names",
+            build_names.len()
+        )
+        .green()
+    );
     Ok(())
 }
 
