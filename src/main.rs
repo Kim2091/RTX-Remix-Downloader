@@ -295,7 +295,7 @@ fn cleanup_debug_files_recursive(dir: &Path, removed_files: &mut u32) -> Result<
 fn download_and_extract_dx8_binaries(client: &Client, final_path: &Path) -> Result<()> {
     println!("{}", "Downloading dx8 binaries".cyan());
     let dx8_url =
-        "https://nightly.link/elishacloud/dxwrapper/workflows/ci/master/dx8%20binaries.zip";
+        "https://nightly.link/elishacloud/dxwrapper/workflows/ci/master/dx8%20game%20binaries.zip";
     let dx8_zip_path = final_path.join("dx8_binaries.zip");
     download_file(client, dx8_url, &dx8_zip_path)?;
 
