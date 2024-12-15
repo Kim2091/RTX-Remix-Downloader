@@ -38,14 +38,12 @@ fn main() -> Result<()> {
     // First ask about stable vs development
     println!("\nChoose build stream:");
     println!(
-        "{}. {} (recommended for most users)",
-        "1".yellow(),
-        "Stable Release"
+        "{}. Stable Release (recommended for most users)",
+        "1".yellow()
     );
     println!(
-        "{}. {} (latest features, may be unstable)",
-        "2".yellow(),
-        "Development Build"
+        "{}. Development Build (latest features, may be unstable)",
+        "2".yellow()
     );
 
     let mut input = String::new();
@@ -176,7 +174,7 @@ fn fetch_artifact(client: &Client, repo: &str, build_type: &str) -> Result<(Stri
     );
 
     let runs_url = format!("https://api.github.com/repos/{}/actions/runs", repo);
-    let runs: Value = client.get(&runs_url).send()?.json()?;
+    let runs: Value = client.get(runs_url).send()?.json()?;
 
     let artifacts_url = runs["workflow_runs"]
         .as_array()
@@ -225,7 +223,7 @@ fn download_and_extract_artifact(
         "{}",
         format!("Downloading artifact: {}", artifact_name).cyan()
     );
-    let mut response = client.get(&download_url).send()?;
+    let mut response = client.get(download_url).send()?;
     let total_size = response.content_length().unwrap_or(0);
 
     let pb = ProgressBar::new(total_size);
@@ -377,7 +375,7 @@ fn download_and_extract_dx8_binaries(client: &Client, final_path: &Path) -> Resu
 
 fn write_build_names(final_path: &Path, build_names: &[String]) -> Result<()> {
     let build_names_path = final_path.join("build-names.txt");
-    let mut file = fs::File::create(&build_names_path)?;
+    let mut file = fs::File::create(build_names_path)?;
     for name in build_names {
         writeln!(file, "{}", name)?;
     }
