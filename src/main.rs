@@ -34,7 +34,33 @@ const LICENSES: [(&str, &str); 4] = [
 
 fn main() -> Result<()> {
     println!("{}", "RTX Remix Download Script".green().bold());
-    println!("Choose a build type (type the number and press Enter):");
+
+    // First ask about stable vs development
+    println!("\nChoose build stream:");
+    println!(
+        "{}. {} (recommended for most users)",
+        "1".yellow(),
+        "Stable Release"
+    );
+    println!(
+        "{}. {} (latest features, may be unstable)",
+        "2".yellow(),
+        "Development Build"
+    );
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let is_stable = match input.trim() {
+        "1" => true,
+        "2" => false,
+        _ => {
+            println!("Invalid selection, defaulting to stable release");
+            true
+        }
+    };
+
+    // Ask for build type for both stable and development
+    println!("\nChoose a build type (type the number and press Enter):");
     for (i, build_type) in BUILD_TYPES.iter().enumerate() {
         println!("{}. {}", (i + 1).to_string().yellow(), build_type);
     }
@@ -43,8 +69,6 @@ fn main() -> Result<()> {
     io::stdin().read_line(&mut input)?;
     let build_type = BUILD_TYPES[input.trim().parse::<usize>()? - 1];
 
-    println!("{}", format!("Downloading {} builds", build_type).cyan());
-
     let client = Client::builder()
         .user_agent("RTX Remix Downloader")
         .build()?;
@@ -52,45 +76,81 @@ fn main() -> Result<()> {
     // Create the "remix" folder in the current working directory
     let remix_path = PathBuf::from("remix");
     fs::create_dir_all(&remix_path)?;
-
-    // Get the canonicalized path
     let final_path = remix_path.canonicalize()?;
 
-    println!(
-        "{}",
-        format!("Created remix folder: {}", clickable_path(&final_path)).green()
-    );
+    if is_stable {
+        println!(
+            "{}",
+            format!("\nDownloading stable {} build...", build_type).cyan()
+        );
 
-    let mut build_names = Vec::new();
+        // Fetch and download stable release
+        let download_url = fetch_latest_stable_release(&client, build_type)?;
+        let stable_zip = final_path.join("stable-release.zip");
 
-    for &(repo, subfolder) in &REPOSITORIES {
-        match fetch_artifact(&client, repo, build_type) {
-            Ok(artifact) => {
-                if let Err(e) =
-                    download_and_extract_artifact(&client, repo, &artifact, &final_path, subfolder)
-                {
-                    eprintln!(
-                        "{}",
-                        format!("Error downloading/extracting artifact: {}", e).red()
-                    );
-                } else {
-                    build_names.push(artifact.0.clone());
-                }
-            }
-            Err(e) => eprintln!(
-                "{}",
-                format!("Error fetching artifact for {}: {}", repo, e).red()
-            ),
+        println!("Downloading stable release from GitHub...");
+        download_file(&client, &download_url, &stable_zip)?;
+
+        println!("Extracting stable release...");
+        let file = fs::File::open(&stable_zip)?;
+        let mut archive = zip::ZipArchive::new(file)?;
+        archive.extract(&final_path)?;
+
+        // Cleanup zip file
+        fs::remove_file(stable_zip)?;
+
+        // Remove d3d8to9.dll and download dxwrapper for stable builds
+        let d3d8to9_path = final_path.join("d3d8to9.dll");
+        if d3d8to9_path.exists() {
+            println!("Removing d3d8to9.dll...");
+            fs::remove_file(d3d8to9_path)?;
         }
+
+        // Download and extract dx8 binaries
+        download_and_extract_dx8_binaries(&client, &final_path)?;
+
+        // Download additional files and licenses
+        download_additional_files(&client, &final_path)?;
+        download_licenses(&client, &final_path)?;
+    } else {
+        println!(
+            "{}",
+            format!("\nDownloading {} development builds", build_type).cyan()
+        );
+
+        let mut build_names = Vec::new();
+
+        for &(repo, subfolder) in &REPOSITORIES {
+            match fetch_artifact(&client, repo, build_type) {
+                Ok(artifact) => {
+                    if let Err(e) = download_and_extract_artifact(
+                        &client,
+                        repo,
+                        &artifact,
+                        &final_path,
+                        subfolder,
+                    ) {
+                        eprintln!(
+                            "{}",
+                            format!("Error downloading/extracting artifact: {}", e).red()
+                        );
+                    } else {
+                        build_names.push(artifact.0.clone());
+                    }
+                }
+                Err(e) => eprintln!(
+                    "{}",
+                    format!("Error fetching artifact for {}: {}", repo, e).red()
+                ),
+            }
+        }
+
+        write_build_names(&final_path, &build_names)?;
+        download_additional_files(&client, &final_path)?;
+        download_licenses(&client, &final_path)?;
+        cleanup_debug_files(&final_path)?;
+        download_and_extract_dx8_binaries(&client, &final_path)?;
     }
-
-    // Write build names to file
-    write_build_names(&final_path, &build_names)?;
-
-    download_additional_files(&client, &final_path)?;
-    download_licenses(&client, &final_path)?;
-    cleanup_debug_files(&final_path)?;
-    download_and_extract_dx8_binaries(&client, &final_path)?;
 
     println!("{}", "Download complete!".green().bold());
     println!("You can find the latest RTX Remix install in:");
@@ -101,7 +161,7 @@ fn main() -> Result<()> {
         "https://github.com/NVIDIAGameWorks/rtx-remix/wiki/runtime-user-guide".cyan()
     );
 
-    // Add this new section to keep the console open
+    // Keep the console open
     println!("\nPress Enter to exit...");
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
@@ -344,4 +404,33 @@ fn clickable_path(path: &Path) -> String {
     )
     .cyan()
     .to_string()
+}
+
+fn fetch_latest_stable_release(client: &Client, build_type: &str) -> Result<String> {
+    println!("{}", "Fetching latest stable release information...".cyan());
+
+    let releases_url = "https://api.github.com/repos/NVIDIAGameWorks/rtx-remix/releases/latest";
+    let response: Value = client.get(releases_url).send()?.json()?;
+
+    let download_url = response["assets"]
+        .as_array()
+        .and_then(|assets| {
+            assets.iter().find(|asset| {
+                asset["name"].as_str().map_or(false, |name| {
+                    // Match the exact pattern: ends with build_type.zip
+                    // and explicitly exclude -symbols
+                    name.ends_with(&format!("-{}.zip", build_type)) && !name.contains("-symbols")
+                })
+            })
+        })
+        .and_then(|asset| asset["browser_download_url"].as_str())
+        .context("No suitable release package found")?
+        .to_string();
+
+    println!(
+        "{}",
+        format!("Found stable release: {}", download_url).green()
+    );
+
+    Ok(download_url)
 }
