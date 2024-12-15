@@ -33,7 +33,7 @@ const LICENSES: [(&str, &str); 4] = [
 ];
 
 fn main() -> Result<()> {
-    println!("{}", "RTX Remix Download Script".green().bold());
+    println!("{}", "RTX Remix Download Script v0.2.6".green().bold());
 
     // First ask about stable vs development
     println!("\nChoose build stream:");
