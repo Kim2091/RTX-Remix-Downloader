@@ -38,11 +38,11 @@ fn main() -> Result<()> {
     // First ask about stable vs development
     println!("\nChoose build stream:");
     println!(
-        "{}. Stable Release (recommended for most users)",
+        "{}. Stable Release (Use these for the most stable experience)",
         "1".yellow()
     );
     println!(
-        "{}. Development Build (latest features, may be unstable)",
+        "{}. Development Build (Use this for the latest features, but it may be unstable)",
         "2".yellow()
     );
 
