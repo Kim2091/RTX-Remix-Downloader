@@ -17,6 +17,8 @@ Simply move the .exe file to a folder or desktop and run it. It will create a su
 Execute the script and follow the instructions shown in the window.
 Once the script finishes you'll find a fully patched RTX Remix install in the Remix folder next to the .exe file, you can then follow the normal [installation guide for RTX Remix](https://github.com/NVIDIAGameWorks/rtx-remix/wiki/runtime-user-guide).
 
+https://github.com/user-attachments/assets/b85be332-3463-4bb9-8b55-bae60f3166cb
+
 ## Support
 Find us on Discord: [RTX Remix Showcase](https://discord.gg/rtxremix)
 
