@@ -22,7 +22,7 @@ https://github.com/user-attachments/assets/b85be332-3463-4bb9-8b55-bae60f3166cb
 ## Support
 Find us on Discord: [RTX Remix Showcase](https://discord.gg/rtxremix)
 
-Script created by [Kowlin](https://github.com/Kowlin) with some nagging by [RuneStorm](https://github.com/RuneStorm)
+Rust version by [me](https://github.com/Kim2091)
 
 Original PowerShell script version by [Kowlin](https://github.com/Kowlin) & [RuneStorm](https://github.com/RuneStorm)
 
