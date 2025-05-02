@@ -46,7 +46,7 @@ fn main() {
 }
 
 fn run_main() -> Result<()> {
-    println!("{}", "RTX Remix Download Script v0.4.0".green().bold());
+    println!("{}", "RTX Remix Download Script v0.3.0.1".green().bold());
 
     // First ask about stable vs development
     println!("\nChoose build stream:");
