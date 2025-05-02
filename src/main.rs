@@ -46,7 +46,7 @@ fn main() {
 }
 
 fn run_main() -> Result<()> {
-    println!("{}", "RTX Remix Download Script v0.3.0".green().bold());
+    println!("{}", "RTX Remix Download Script v0.4.0".green().bold());
 
     // First ask about stable vs development
     println!("\nChoose build stream:");
@@ -173,60 +173,58 @@ fn run_main() -> Result<()> {
             // Download only DXVK-related licenses
             download_x64_licenses(&client, &final_path)?;
         }
+    } else if is_x86 {
+        // Fetch and download unified x86 package
+        let (artifact_name, download_url) = fetch_x86_unified_artifact(&client, build_type)?;
+        let unified_zip = final_path.join("rtx-remix-x86.zip");
+
+        println!("Downloading unified x86 package: {}", artifact_name);
+        download_file(&client, &download_url, &unified_zip)?;
+
+        println!("Extracting unified package...");
+        let file = fs::File::open(&unified_zip)?;
+        let mut archive = zip::ZipArchive::new(file)?;
+        archive.extract(&final_path)?;
+
+        // Cleanup zip file
+        fs::remove_file(unified_zip)?;
+
+        // Clean up debug files
+        cleanup_debug_files(&final_path)?;
+
+        // Download and extract dx8 binaries for x86
+        download_and_extract_dx8_binaries(&client, &final_path)?;
+
+        // Download additional files and licenses
+        download_additional_files(&client, &final_path)?;
+        download_licenses(&client, &final_path)?;
+
+        // Write build info
+        write_build_names(&final_path, &[artifact_name])?;
     } else {
-        if is_x86 {
-            // Fetch and download unified x86 package
-            let (artifact_name, download_url) = fetch_x86_unified_artifact(&client, build_type)?;
-            let unified_zip = final_path.join("rtx-remix-x86.zip");
+        // Fetch and download x64 package
+        let (artifact_name, download_url) = fetch_x64_artifact(&client, build_type)?;
+        let x64_zip = final_path.join("rtx-remix-x64.zip");
 
-            println!("Downloading unified x86 package: {}", artifact_name);
-            download_file(&client, &download_url, &unified_zip)?;
+        println!("Downloading x64 package: {}", artifact_name);
+        download_file(&client, &download_url, &x64_zip)?;
 
-            println!("Extracting unified package...");
-            let file = fs::File::open(&unified_zip)?;
-            let mut archive = zip::ZipArchive::new(file)?;
-            archive.extract(&final_path)?;
+        println!("Extracting x64 package...");
+        let file = fs::File::open(&x64_zip)?;
+        let mut archive = zip::ZipArchive::new(file)?;
+        archive.extract(&final_path)?;
 
-            // Cleanup zip file
-            fs::remove_file(unified_zip)?;
+        // Cleanup zip file
+        fs::remove_file(x64_zip)?;
 
-            // Clean up debug files
-            cleanup_debug_files(&final_path)?;
+        // Clean up debug files
+        cleanup_debug_files(&final_path)?;
 
-            // Download and extract dx8 binaries for x86
-            download_and_extract_dx8_binaries(&client, &final_path)?;
+        // For x64, only download DXVK-related licenses
+        download_x64_licenses(&client, &final_path)?;
 
-            // Download additional files and licenses
-            download_additional_files(&client, &final_path)?;
-            download_licenses(&client, &final_path)?;
-
-            // Write build info
-            write_build_names(&final_path, &[artifact_name])?;
-        } else {
-            // Fetch and download x64 package
-            let (artifact_name, download_url) = fetch_x64_artifact(&client, build_type)?;
-            let x64_zip = final_path.join("rtx-remix-x64.zip");
-
-            println!("Downloading x64 package: {}", artifact_name);
-            download_file(&client, &download_url, &x64_zip)?;
-
-            println!("Extracting x64 package...");
-            let file = fs::File::open(&x64_zip)?;
-            let mut archive = zip::ZipArchive::new(file)?;
-            archive.extract(&final_path)?;
-
-            // Cleanup zip file
-            fs::remove_file(x64_zip)?;
-
-            // Clean up debug files
-            cleanup_debug_files(&final_path)?;
-
-            // For x64, only download DXVK-related licenses
-            download_x64_licenses(&client, &final_path)?;
-
-            // Write build info
-            write_build_names(&final_path, &[artifact_name])?;
-        }
+        // Write build info
+        write_build_names(&final_path, &[artifact_name])?;
     }
 
     println!("{}", "Download complete!".green().bold());
@@ -257,7 +255,7 @@ fn fetch_latest_stable_release(client: &Client, build_type: &str) -> Result<(Str
         .as_array()
         .and_then(|assets| {
             assets.iter().find(|asset| {
-                asset["name"].as_str().map_or(false, |name| {
+                asset["name"].as_str().is_some_and(|name| {
                     // Match the exact pattern: ends with build_type.zip
                     // and explicitly exclude -symbols
                     name.ends_with(&format!("-{}.zip", build_type)) && !name.contains("-symbols")
@@ -308,7 +306,7 @@ fn fetch_x86_unified_artifact(client: &Client, build_type: &str) -> Result<(Stri
         .as_array()
         .and_then(|artifacts| {
             artifacts.iter().find(|a| {
-                a["name"].as_str().map_or(false, |name| {
+                a["name"].as_str().is_some_and(|name| {
                     name.contains(build_type) && name.contains("rtx-remix-for-x86-games")
                 })
             })
@@ -350,7 +348,7 @@ fn fetch_x64_artifact(client: &Client, build_type: &str) -> Result<(String, Stri
         .as_array()
         .and_then(|artifacts| {
             artifacts.iter().find(|a| {
-                a["name"].as_str().map_or(false, |name| {
+                a["name"].as_str().is_some_and(|name| {
                     name.contains(build_type) && !name.contains("x86") && !name.contains("symbols")
                 })
             })
@@ -511,7 +509,7 @@ fn cleanup_debug_files_recursive(dir: &Path, removed_files: &mut u32) -> Result<
         } else {
             let file_name = path.file_name().unwrap_or_default().to_string_lossy();
 
-            if path.extension().map_or(false, |ext| ext == "pdb")
+            if path.extension().is_some_and(|ext| ext == "pdb")
                 || file_name == "CRC.txt"
                 || file_name == "artifacts_readme.txt"
             {
