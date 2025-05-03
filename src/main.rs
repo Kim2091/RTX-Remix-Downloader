@@ -289,23 +289,32 @@ fn fetch_x86_unified_artifact(client: &Client, build_type: &str) -> Result<(Stri
     );
 
     let runs_url = format!(
-        "https://api.github.com/repos/{}/actions/runs",
+        "https://api.github.com/repos/{}/actions/runs?branch=main", // Added ?branch=main
         DXVK_REMIX_REPO
     );
     let runs: Value = client.get(runs_url).send()?.json()?;
 
-    let artifacts_url = runs["workflow_runs"]
+    // Find the latest successful run on the main branch
+    let latest_successful_run = runs["workflow_runs"]
         .as_array()
-        .and_then(|runs| runs.iter().find(|run| run["conclusion"] == "success"))
-        .and_then(|run| run["artifacts_url"].as_str())
-        .context("No successful run found")?;
+        .and_then(|runs_array| {
+            runs_array
+                .iter()
+                .filter(|run| run["conclusion"] == "success") // No need to filter branch here anymore
+                .max_by_key(|run| run["run_number"].as_u64().unwrap_or(0)) // Get the latest by run number
+        })
+        .context("No successful run found on the main branch")?;
+
+    let artifacts_url = latest_successful_run["artifacts_url"]
+        .as_str()
+        .context("No artifacts URL found in the latest successful run")?;
 
     let artifacts: Value = client.get(artifacts_url).send()?.json()?;
 
     let artifact = artifacts["artifacts"]
         .as_array()
-        .and_then(|artifacts| {
-            artifacts.iter().find(|a| {
+        .and_then(|artifacts_array| {
+            artifacts_array.iter().find(|a| {
                 a["name"].as_str().is_some_and(|name| {
                     name.contains(build_type) && name.contains("rtx-remix-for-x86-games")
                 })
@@ -331,23 +340,32 @@ fn fetch_x64_artifact(client: &Client, build_type: &str) -> Result<(String, Stri
     );
 
     let runs_url = format!(
-        "https://api.github.com/repos/{}/actions/runs",
+        "https://api.github.com/repos/{}/actions/runs?branch=main", // Added ?branch=main
         DXVK_REMIX_REPO
     );
     let runs: Value = client.get(runs_url).send()?.json()?;
 
-    let artifacts_url = runs["workflow_runs"]
+    // Find the latest successful run on the main branch
+    let latest_successful_run = runs["workflow_runs"]
         .as_array()
-        .and_then(|runs| runs.iter().find(|run| run["conclusion"] == "success"))
-        .and_then(|run| run["artifacts_url"].as_str())
-        .context("No successful run found")?;
+        .and_then(|runs_array| {
+            runs_array
+                .iter()
+                .filter(|run| run["conclusion"] == "success") // No need to filter branch here anymore
+                .max_by_key(|run| run["run_number"].as_u64().unwrap_or(0)) // Get the latest by run number
+        })
+        .context("No successful run found on the main branch")?;
+
+    let artifacts_url = latest_successful_run["artifacts_url"]
+        .as_str()
+        .context("No artifacts URL found in the latest successful run")?;
 
     let artifacts: Value = client.get(artifacts_url).send()?.json()?;
 
     let artifact = artifacts["artifacts"]
         .as_array()
-        .and_then(|artifacts| {
-            artifacts.iter().find(|a| {
+        .and_then(|artifacts_array| {
+            artifacts_array.iter().find(|a| {
                 a["name"].as_str().is_some_and(|name| {
                     name.contains(build_type) && !name.contains("x86") && !name.contains("symbols")
                 })
