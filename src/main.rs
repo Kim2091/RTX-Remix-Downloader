@@ -220,8 +220,8 @@ fn fetch_latest_stable_release(client: &Client, build_type: &str) -> Result<(Str
     let response: Value = client.get(releases_url).send()?.json()?;
 
     let asset = find_release_asset(&response, build_type)?;
-    let download_url = extract_asset_url(&asset)?;
-    let asset_name = extract_asset_name(&asset)?;
+    let download_url = extract_asset_url(asset)?;
+    let asset_name = extract_asset_name(asset)?;
 
     println!("{}", format!("Found stable release: {} ({})", asset_name, download_url).green());
     Ok((asset_name, download_url))
@@ -265,12 +265,12 @@ where
     let runs: Value = client.get(runs_url).send()?.json()?;
 
     let latest_successful_run = find_latest_successful_run(&runs)?;
-    let artifacts_url = extract_artifacts_url(&latest_successful_run)?;
+    let artifacts_url = extract_artifacts_url(latest_successful_run)?;
     let artifacts: Value = client.get(artifacts_url).send()?.json()?;
 
     let artifact = find_matching_artifact(&artifacts, filter)?;
-    let artifact_name = extract_artifact_name(&artifact)?;
-    let artifact_id = extract_artifact_id(&artifact)?;
+    let artifact_name = extract_artifact_name(artifact)?;
+    let artifact_id = extract_artifact_id(artifact)?;
 
     let download_url = format!(
         "https://nightly.link/{}/actions/artifacts/{}.zip",
@@ -493,10 +493,9 @@ fn cleanup_debug_files_recursive(dir: &Path, removed_files: &mut u32) -> Result<
 
         if path.is_dir() {
             cleanup_debug_files_recursive(&path, removed_files)?;
-        } else if should_remove_file(&path) {
-            if fs::remove_file(&path).is_ok() {
-                *removed_files += 1;
-            }
+        } else if should_remove_file(&path)
+            && fs::remove_file(&path).is_ok() {
+            *removed_files += 1;
         }
     }
     Ok(())
