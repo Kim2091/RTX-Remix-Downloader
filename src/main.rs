@@ -92,7 +92,7 @@ fn prompt_build_stream() -> Result<bool> {
             "Development Build (Use this for the latest features, but it may be unstable)",
         ],
         true,
-        "stable release"
+        "stable release",
     )
 }
 
@@ -104,11 +104,16 @@ fn prompt_architecture() -> Result<bool> {
             "64-bit (x64) Games (More modern games)",
         ],
         true,
-        "x86"
+        "x86",
     )
 }
 
-fn prompt_choice(title: &str, options: &[&str], default_first: bool, default_name: &str) -> Result<bool> {
+fn prompt_choice(
+    title: &str,
+    options: &[&str],
+    default_first: bool,
+    default_name: &str,
+) -> Result<bool> {
     println!("{}", title);
     for (i, option) in options.iter().enumerate() {
         println!("{}. {}", (i + 1).to_string().yellow(), option);
@@ -132,12 +137,15 @@ fn prompt_build_type() -> Result<&'static str> {
     }
 
     let input = read_user_input()?;
-    let index = input.trim().parse::<usize>()
+    let index = input
+        .trim()
+        .parse::<usize>()
         .context("Invalid build type selection")?
         .checked_sub(1)
         .context("Invalid build type number")?;
-    
-    BUILD_TYPES.get(index)
+
+    BUILD_TYPES
+        .get(index)
         .copied()
         .context("Build type index out of range")
 }
@@ -159,15 +167,26 @@ fn create_http_client() -> Result<Client> {
 fn setup_output_directory() -> Result<PathBuf> {
     let remix_path = PathBuf::from("remix");
     cleanup_existing_directory(&remix_path)?;
-    remix_path.canonicalize().context("Failed to canonicalize remix path")
+    remix_path
+        .canonicalize()
+        .context("Failed to canonicalize remix path")
 }
 
 // === Main Download and Installation Logic ===
 fn download_and_install(client: &Client, final_path: &Path, config: BuildConfig) -> Result<()> {
-    println!("{}", format!("\nDownloading {} {} build...", 
-        if config.is_stable { "stable" } else { "development" },
-        config.build_type
-    ).cyan());
+    println!(
+        "{}",
+        format!(
+            "\nDownloading {} {} build...",
+            if config.is_stable {
+                "stable"
+            } else {
+                "development"
+            },
+            config.build_type
+        )
+        .cyan()
+    );
 
     let (artifact_name, download_url) = fetch_package(client, config)?;
     let zip_path = final_path.join("package.zip");
@@ -175,7 +194,7 @@ fn download_and_install(client: &Client, final_path: &Path, config: BuildConfig)
     download_file(client, &download_url, &zip_path)?;
     extract_archive(&zip_path, final_path)?;
     fs::remove_file(zip_path)?;
-    
+
     // Only cleanup debug files for stable builds
     if config.is_stable {
         cleanup_debug_files(final_path)?;
@@ -223,7 +242,10 @@ fn fetch_latest_stable_release(client: &Client, build_type: &str) -> Result<(Str
     let download_url = extract_asset_url(asset)?;
     let asset_name = extract_asset_name(asset)?;
 
-    println!("{}", format!("Found stable release: {} ({})", asset_name, download_url).green());
+    println!(
+        "{}",
+        format!("Found stable release: {} ({})", asset_name, download_url).green()
+    );
     Ok((asset_name, download_url))
 }
 
@@ -241,14 +263,20 @@ fn find_release_asset<'a>(response: &'a Value, build_type: &str) -> Result<&'a V
 }
 
 fn fetch_x86_unified_artifact(client: &Client, build_type: &str) -> Result<(String, String)> {
-    println!("{}", format!("Fetching unified x86 package ({} build)...", build_type).cyan());
+    println!(
+        "{}",
+        format!("Fetching unified x86 package ({} build)...", build_type).cyan()
+    );
     fetch_artifact(client, build_type, |name| {
         name.contains(build_type) && name.contains("rtx-remix-for-x86-games")
     })
 }
 
 fn fetch_x64_artifact(client: &Client, build_type: &str) -> Result<(String, String)> {
-    println!("{}", format!("Fetching x64 package ({} build)...", build_type).cyan());
+    println!(
+        "{}",
+        format!("Fetching x64 package ({} build)...", build_type).cyan()
+    );
     fetch_artifact(client, build_type, |name| {
         name.contains(build_type) && !name.contains("x86") && !name.contains("symbols")
     })
@@ -258,7 +286,7 @@ fn fetch_artifact<F>(client: &Client, _build_type: &str, filter: F) -> Result<(S
 where
     F: Fn(&str) -> bool,
 {
-        let runs_url = format!(
+    let runs_url = format!(
         "https://api.github.com/repos/{}/actions/runs?branch=main",
         DXVK_REMIX_REPO
     );
@@ -299,9 +327,9 @@ where
     artifacts["artifacts"]
         .as_array()
         .and_then(|artifacts_array| {
-            artifacts_array.iter().find(|a| {
-                a["name"].as_str().is_some_and(&filter)
-            })
+            artifacts_array
+                .iter()
+                .find(|a| a["name"].as_str().is_some_and(&filter))
         })
         .context("No matching artifact found")
 }
@@ -315,15 +343,11 @@ fn extract_json_string(value: &Value, key: &str) -> Result<String> {
 }
 
 fn extract_json_str<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
-        value[key]
-        .as_str()
-        .context(format!("No {} found", key))
+    value[key].as_str().context(format!("No {} found", key))
 }
 
 fn extract_json_u64(value: &Value, key: &str) -> Result<u64> {
-    value[key]
-        .as_u64()
-        .context(format!("No {} found", key))
+    value[key].as_u64().context(format!("No {} found", key))
 }
 
 fn extract_asset_url(asset: &Value) -> Result<String> {
@@ -397,7 +421,12 @@ fn download_additional_files(client: &Client, final_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn download_files_to_path(client: &Client, final_path: &Path, files: &[(&str, &str)], message: &str) -> Result<()> {
+fn download_files_to_path(
+    client: &Client,
+    final_path: &Path,
+    files: &[(&str, &str)],
+    message: &str,
+) -> Result<()> {
     println!("{}", message.cyan());
     for (filename, url) in files {
         let dest_path = final_path.join(filename);
@@ -412,26 +441,35 @@ fn download_licenses(client: &Client, final_path: &Path) -> Result<()> {
 }
 
 fn download_x64_licenses(client: &Client, final_path: &Path) -> Result<()> {
-    download_files_to_path(client, final_path, &X64_LICENSES, "Downloading license files")
+    download_files_to_path(
+        client,
+        final_path,
+        &X64_LICENSES,
+        "Downloading license files",
+    )
 }
 
 fn download_dxvk_conf_only(client: &Client, final_path: &Path) -> Result<()> {
-    let dxvk_conf = [("dxvk.conf", "https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/main/dxvk.conf")];
+    let dxvk_conf = [(
+        "dxvk.conf",
+        "https://raw.githubusercontent.com/NVIDIAGameWorks/dxvk-remix/main/dxvk.conf",
+    )];
     download_files_to_path(client, final_path, &dxvk_conf, "Downloading dxvk.conf")
 }
 
 fn download_and_extract_dx8_binaries(client: &Client, final_path: &Path) -> Result<()> {
     println!("{}", "Downloading dx8 binaries".cyan());
-    let dx8_url = "https://nightly.link/elishacloud/dxwrapper/workflows/ci/master/dx8%20game%20binaries.zip";
+    let dx8_url =
+        "https://nightly.link/elishacloud/dxwrapper/workflows/ci/master/dx8%20game%20binaries.zip";
     let dx8_zip_path = final_path.join("dx8_binaries.zip");
-    
+
     download_file(client, dx8_url, &dx8_zip_path)?;
     extract_archive(&dx8_zip_path, final_path)?;
-    
+
     rename_d3d8_dll(final_path)?;
     remove_d3d8to9_dll(final_path)?;
     download_dxwrapper_license(client, final_path)?;
-    
+
     fs::remove_file(dx8_zip_path)?;
     Ok(())
 }
@@ -448,7 +486,10 @@ fn remove_d3d8to9_dll(final_path: &Path) -> Result<()> {
     let d3d8to9_path = final_path.join("d3d8to9.dll");
     if d3d8to9_path.exists() {
         if let Err(e) = fs::remove_file(&d3d8to9_path) {
-            eprintln!("{}", format!("Warning: Could not remove d3d8to9.dll: {}", e).yellow());
+            eprintln!(
+                "{}",
+                format!("Warning: Could not remove d3d8to9.dll: {}", e).yellow()
+            );
         } else {
             println!("{}", "Removed d3d8to9.dll".cyan());
         }
@@ -458,7 +499,8 @@ fn remove_d3d8to9_dll(final_path: &Path) -> Result<()> {
 
 fn download_dxwrapper_license(client: &Client, final_path: &Path) -> Result<()> {
     println!("{}", "Downloading dxwrapper license".cyan());
-    let dxwrapper_license_url = "https://raw.githubusercontent.com/elishacloud/dxwrapper/refs/heads/master/License.txt";
+    let dxwrapper_license_url =
+        "https://raw.githubusercontent.com/elishacloud/dxwrapper/refs/heads/master/License.txt";
     let license_dest_path = final_path.join("ThirdPartyLicenses-dxwrapper.txt");
     download_file(client, dxwrapper_license_url, &license_dest_path)?;
     Ok(())
@@ -480,7 +522,11 @@ fn cleanup_debug_files(dir: &Path) -> Result<()> {
     if removed_files > 0 {
         println!(
             "{}",
-            format!("Cleaned up {} debugging symbol files and unnecessary files", removed_files).cyan()
+            format!(
+                "Cleaned up {} debugging symbol files and unnecessary files",
+                removed_files
+            )
+            .cyan()
         );
     }
     Ok(())
@@ -493,8 +539,7 @@ fn cleanup_debug_files_recursive(dir: &Path, removed_files: &mut u32) -> Result<
 
         if path.is_dir() {
             cleanup_debug_files_recursive(&path, removed_files)?;
-        } else if should_remove_file(&path)
-            && fs::remove_file(&path).is_ok() {
+        } else if should_remove_file(&path) && fs::remove_file(&path).is_ok() {
             *removed_files += 1;
         }
     }
@@ -517,8 +562,12 @@ fn handle_stable_x86_cleanup(final_path: &Path) -> Result<()> {
 fn remove_file_if_exists(base_path: &Path, filename: &str) -> Result<()> {
     let file_path = base_path.join(filename);
     if file_path.exists() {
-        fs::remove_file(&file_path)
-            .unwrap_or_else(|e| eprintln!("{}", format!("Warning: Could not remove {}: {}", filename, e).yellow()));
+        fs::remove_file(&file_path).unwrap_or_else(|e| {
+            eprintln!(
+                "{}",
+                format!("Warning: Could not remove {}: {}", filename, e).yellow()
+            )
+        });
     }
     Ok(())
 }
@@ -533,7 +582,10 @@ fn reorganize_x64_files(final_path: &Path) -> Result<()> {
                 "Could not find .trex directory or dxvk.dll in the package root"
             ));
         }
-        println!("{}", "Skipping .trex reorganization as dxvk.dll found in root.".yellow());
+        println!(
+            "{}",
+            "Skipping .trex reorganization as dxvk.dll found in root.".yellow()
+        );
     } else {
         process_trex_directory(&trex_path, final_path)?;
     }
@@ -552,10 +604,10 @@ fn process_trex_directory(trex_path: &Path, final_path: &Path) -> Result<()> {
 
     // Move files from .trex to root
     move_files_to_root(trex_path, final_path)?;
-    
+
     // Move usd folder
     move_usd_folder(trex_path, final_path)?;
-    
+
     // Remove .trex directory
     fs::remove_dir_all(trex_path)?;
     Ok(())
@@ -566,13 +618,13 @@ fn move_files_to_root(trex_path: &Path, final_path: &Path) -> Result<()> {
     for entry in fs::read_dir(final_path)? {
         let entry = entry?;
         let path = entry.path();
-        
+
         // Skip the .trex directory itself and any other directories
         if path.is_file() {
             fs::remove_file(&path)?;
         }
     }
-    
+
     // Now move files from .trex to root
     for entry in fs::read_dir(trex_path)? {
         let entry = entry?;
@@ -599,11 +651,8 @@ fn move_usd_folder(trex_path: &Path, final_path: &Path) -> Result<()> {
 }
 
 fn remove_x64_unwanted_files(final_path: &Path) -> Result<()> {
-    let files_to_remove = [
-        "nvremixbridge.exe",
-        "d3d8to9.dll"
-    ];
-    
+    let files_to_remove = ["nvremixbridge.exe", "d3d8to9.dll"];
+
     for file in files_to_remove {
         remove_file_if_exists(final_path, file)?;
     }
@@ -619,7 +668,11 @@ fn write_build_names(final_path: &Path, build_names: &[String]) -> Result<()> {
     }
     println!(
         "{}",
-        format!("Created build-names.txt with {} build names", build_names.len()).green()
+        format!(
+            "Created build-names.txt with {} build names",
+            build_names.len()
+        )
+        .green()
     );
     Ok(())
 }
@@ -630,9 +683,12 @@ fn display_path(path: &Path) -> String {
 
 fn clickable_path(path: &Path) -> String {
     let clean_path = display_path(path);
-    format!("\x1B]8;;file://{}\x07{}\x1B]8;;\x07", clean_path, clean_path)
-        .cyan()
-        .to_string()
+    format!(
+        "\x1B]8;;file://{}\x07{}\x1B]8;;\x07",
+        clean_path, clean_path
+    )
+    .cyan()
+    .to_string()
 }
 
 fn display_completion_message(final_path: &Path) {
@@ -640,7 +696,10 @@ fn display_completion_message(final_path: &Path) {
     println!("You can find the latest RTX Remix install in:");
     println!("{}", clickable_path(final_path));
     println!("{}", "RTX Remix install guide:".yellow());
-    println!("{}", "https://github.com/NVIDIAGameWorks/rtx-remix/wiki/runtime-user-guide".cyan());
+    println!(
+        "{}",
+        "https://github.com/NVIDIAGameWorks/rtx-remix/wiki/runtime-user-guide".cyan()
+    );
 }
 
 fn wait_for_exit() {
