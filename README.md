@@ -4,7 +4,11 @@ A simple downloader for the latest RTX Remix and Remix Plus builds.
 
 It offers stable releases and development builds (the latest successful CI build) for:
 * RTX Remix from [NVIDIAGameWorks/rtx-remix](https://github.com/NVIDIAGameWorks/rtx-remix) and [NVIDIAGameWorks/dxvk-remix](https://github.com/NVIDIAGameWorks/dxvk-remix/): 32-bit (x86), 64-bit (x64) and ARM64 games
-* Remix Plus from [RemixProjGroup/dxvk-remix](https://github.com/RemixProjGroup/dxvk-remix): 32-bit (x86) and 64-bit (x64) games
+* Remix Plus from [RemixProjGroup/dxvk-remix](https://github.com/RemixProjGroup/dxvk-remix): 32-bit (x86) and 64-bit (x64) games. Remix Plus is a community fork of RTX Remix (not made or endorsed by NVIDIA) with more features, including:
+  * the NUMOS sky: a physically based atmosphere with volumetric clouds and editable weather presets
+  * HDR10 output
+  * a new tone curve and color grade presets
+  * faster performance from a scene that is kept between frames, plus more listed in its [changelog](https://github.com/RemixProjGroup/dxvk-remix/blob/main/docs/CHANGELOG.md)
 
 Only the build types a release actually ships are offered. 32-bit installs also get dxwrapper's d3d8 as `d3d8_off.dll` for DirectX 8 games.
 

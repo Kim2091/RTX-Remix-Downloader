@@ -168,7 +168,11 @@ fn run() -> Result<()> {
         &[
             ("RTX Remix (Official NVIDIA builds)", Product::Remix),
             (
-                "Remix Plus (Community fork by RemixProjGroup, not made or endorsed by NVIDIA)",
+                concat!(
+                    "Remix Plus (Community fork by RemixProjGroup, not made or endorsed by NVIDIA)\n",
+                    "   Adds a physically based sky with volumetric clouds and weather, HDR10 output,\n",
+                    "   a new tone curve, color grade presets, faster performance and more",
+                ),
                 Product::RemixPlus,
             ),
         ],
