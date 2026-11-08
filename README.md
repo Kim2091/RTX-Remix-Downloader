@@ -11,7 +11,7 @@ Only the build types a release actually ships are offered. 32-bit installs also 
  # [Download](https://github.com/Kim2091/RTX-Remix-Downloader/releases/latest/download/RTX.Remix.Downloader.exe)
 
 ## Installation
-Simply move the .exe file to a folder or desktop and run it. It will create a subdirectory called "remix" that contains all the files it downloaded.
+Simply move the .exe file to a folder or desktop and run it. When a new version of the downloader is out, it tells you at startup and can update itself. It will create a subdirectory called "remix" that contains all the files it downloaded.
 Running it again replaces that install. Only files the downloader installed and nobody changed are deleted; anything you added or edited is kept in a "remix-old-..." folder next to it.
 
 ## Usage

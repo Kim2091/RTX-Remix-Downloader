@@ -11,6 +11,8 @@ use serde_json::Value;
 
 // === Constants ===
 const INSTALL_DIR: &str = "remix";
+const DOWNLOADER_REPO: &str = "Kim2091/RTX-Remix-Downloader";
+const REMOVE_OLD_ARG: &str = "--remove-old";
 const STAGING_PREFIX: &str = "remix-download";
 const KEPT_FILES_PREFIX: &str = "remix-old";
 // Lists the files the downloader installed, so only those are ever deleted.
@@ -133,6 +135,7 @@ struct Package {
 
 // === Main Entry Point ===
 fn main() {
+    remove_replaced_exe();
     if let Err(e) = run() {
         eprintln!("{}", format!("Error: {:#}", e).red());
         wait_for_exit();
@@ -147,6 +150,18 @@ fn run() -> Result<()> {
             .green()
             .bold()
     );
+
+    let client = Client::builder()
+        .user_agent("RTX Remix Downloader")
+        .build()
+        .context("Failed to create HTTP client")?;
+
+    if let Err(e) = check_for_update(&client) {
+        println!(
+            "{}",
+            format!("Could not check for downloader updates: {:#}", e).yellow()
+        );
+    }
 
     let product = prompt_choice(
         "\nChoose runtime:",
@@ -178,11 +193,6 @@ fn run() -> Result<()> {
         .collect();
     let arch = prompt_choice("\nChoose game type:", &arch_options)?;
 
-    let client = Client::builder()
-        .user_agent("RTX Remix Downloader")
-        .build()
-        .context("Failed to create HTTP client")?;
-
     let packages = match stream {
         Stream::Stable => find_stable_packages(&client, product, arch)?,
         Stream::Development => find_dev_packages(&client, product, arch)?,
@@ -207,6 +217,153 @@ fn run() -> Result<()> {
     Ok(())
 }
 
+// === Downloader Updates ===
+
+/// Offers to replace this executable when a newer downloader release exists.
+fn check_for_update(client: &Client) -> Result<()> {
+    let release = get_json(
+        client,
+        &format!(
+            "https://api.github.com/repos/{}/releases/latest",
+            DOWNLOADER_REPO
+        ),
+    )?;
+    let tag = release["tag_name"]
+        .as_str()
+        .context("The latest release has no tag")?;
+    if version_parts(tag) <= version_parts(env!("CARGO_PKG_VERSION")) {
+        return Ok(());
+    }
+
+    println!(
+        "{}",
+        format!(
+            "\nA new version of the downloader is available: {} (you have v{})",
+            tag,
+            env!("CARGO_PKG_VERSION")
+        )
+        .yellow()
+        .bold()
+    );
+    if let Some(url) = release["html_url"].as_str() {
+        println!("What's new: {}", url.cyan());
+    }
+
+    let asset_name = match std::env::consts::ARCH {
+        "aarch64" => "RTX.Remix.Downloader.ARM64.exe",
+        _ => "RTX.Remix.Downloader.exe",
+    };
+    let asset = release["assets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|asset| asset["name"] == asset_name);
+    let (Some(url), Some(size)) = (
+        asset.and_then(|a| a["browser_download_url"].as_str()),
+        asset.and_then(|a| a["size"].as_u64()),
+    ) else {
+        println!("Download it from the release page above.");
+        return Ok(());
+    };
+
+    let update = prompt_choice(
+        "Update now?",
+        &[
+            ("No, continue with this version", false),
+            ("Yes, update and restart", true),
+        ],
+    )?;
+    if update {
+        replace_exe(client, url, size)?;
+    }
+    Ok(())
+}
+
+/// Splits a version such as `v0.3.0.1_2` into its numbers for comparison.
+fn version_parts(version: &str) -> Vec<u64> {
+    version
+        .trim_start_matches('v')
+        .split(['.', '_', '-'])
+        .map_while(|part| part.parse().ok())
+        .collect()
+}
+
+/// Swaps in the new executable and restarts it. The running executable is
+/// renamed aside, since Windows cannot delete it, and the new one removes it.
+fn replace_exe(client: &Client, url: &str, size: u64) -> Result<()> {
+    let exe = std::env::current_exe().context("Failed to locate the downloader")?;
+    let dir = exe
+        .parent()
+        .context("Failed to locate the downloader's folder")?;
+    let name = exe
+        .file_name()
+        .context("Failed to read the downloader's name")?
+        .to_string_lossy()
+        .into_owned();
+
+    let new_exe = unique_path(dir, &format!("{}.new", name));
+    let downloaded = download_file(client, url, &new_exe).and_then(|()| {
+        let len = fs::metadata(&new_exe)?.len();
+        if len != size {
+            anyhow::bail!("The update is {} bytes, expected {}", len, size);
+        }
+        Ok(())
+    });
+    if let Err(e) = downloaded {
+        let _ = fs::remove_file(&new_exe);
+        return Err(e);
+    }
+
+    let old_exe = unique_path(dir, &format!("{}.old", name));
+    if let Err(e) = fs::rename(&exe, &old_exe) {
+        let _ = fs::remove_file(&new_exe);
+        return Err(e).context("Failed to replace the downloader");
+    }
+    if let Err(e) = fs::rename(&new_exe, &exe) {
+        let _ = fs::rename(&old_exe, &exe);
+        let _ = fs::remove_file(&new_exe);
+        return Err(e).context("Failed to replace the downloader");
+    }
+
+    println!("{}", "Updated. Restarting...".green());
+    std::process::Command::new(&exe)
+        .arg(REMOVE_OLD_ARG)
+        .arg(&old_exe)
+        .spawn()
+        .context("The update is installed; start the downloader again")?;
+    std::process::exit(0);
+}
+
+/// Deletes the executable an update replaced, when started with `--remove-old <path>`.
+/// Only a file next to this executable and named by `replace_exe` is accepted.
+fn remove_replaced_exe() {
+    let mut args = std::env::args_os().skip(1);
+    if args.next().as_deref() != Some(REMOVE_OLD_ARG.as_ref()) {
+        return;
+    }
+    let (Some(old_exe), Ok(exe)) = (args.next().map(PathBuf::from), std::env::current_exe()) else {
+        return;
+    };
+    let expected_prefix = format!(
+        "{}.old-",
+        exe.file_name().unwrap_or_default().to_string_lossy()
+    );
+    let named_by_update = old_exe
+        .file_name()
+        .is_some_and(|n| n.to_string_lossy().starts_with(&expected_prefix));
+    if !named_by_update || old_exe.parent() != exe.parent() {
+        return;
+    }
+
+    // The previous process may still be exiting.
+    for _ in 0..40 {
+        if fs::remove_file(&old_exe).is_ok() || !old_exe.exists() {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+}
+
 // === User Input ===
 fn prompt_choice<T: Copy>(title: &str, options: &[(&str, T)]) -> Result<T> {
     println!("{}", title);
@@ -215,7 +372,9 @@ fn prompt_choice<T: Copy>(title: &str, options: &[(&str, T)]) -> Result<T> {
     }
 
     let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
+    if io::stdin().read_line(&mut input)? == 0 {
+        anyhow::bail!("No input; the console was closed");
+    }
     let choice = input
         .trim()
         .parse::<usize>()
@@ -788,6 +947,15 @@ mod tests {
             package_build_type("build-logs-1468-f35b86a-release", Arch::X64),
             None
         );
+    }
+
+    #[test]
+    fn downloader_versions() {
+        assert!(version_parts("v0.4.0") > version_parts("0.3.0"));
+        assert!(version_parts("v0.4.0") > version_parts("v0.3.0.1_2"));
+        assert!(version_parts("v0.3.0.1_2") > version_parts("v0.3.0.1"));
+        assert!(version_parts("v0.4.0") <= version_parts("0.4.0"));
+        assert!(version_parts("v0.10.0") > version_parts("v0.9.0"));
     }
 
     #[test]
