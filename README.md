@@ -1,17 +1,18 @@
 # RTX-Remix-Downloader
 
-A simple downloader for the latest RTX-Remix releases.
-This script requests the latest artifact builds from the official Github repositories.
+A simple downloader for the latest RTX Remix and Remix Plus builds.
 
-It will pull the latest files from the following NVIDIAGameWorks repos 
-* [rtx-remix](https://github.com/NVIDIAGameWorks/rtx-remix)
-* [dxvk-remix](https://github.com/NVIDIAGameWorks/dxvk-remix/)
-* [bridge-remix](https://github.com/NVIDIAGameWorks/bridge-remix/)
+It offers stable releases and development builds (the latest successful CI build) for:
+* RTX Remix from [NVIDIAGameWorks/rtx-remix](https://github.com/NVIDIAGameWorks/rtx-remix) and [NVIDIAGameWorks/dxvk-remix](https://github.com/NVIDIAGameWorks/dxvk-remix/): 32-bit (x86), 64-bit (x64) and ARM64 games
+* Remix Plus from [RemixProjGroup/dxvk-remix](https://github.com/RemixProjGroup/dxvk-remix): 32-bit (x86) and 64-bit (x64) games
+
+Only the build types a release actually ships are offered. 32-bit installs also get dxwrapper's d3d8 as `d3d8_off.dll` for DirectX 8 games.
 
  # [Download](https://github.com/Kim2091/RTX-Remix-Downloader/releases/latest/download/RTX.Remix.Downloader.exe)
 
 ## Installation
-Simply move the .exe file to a folder or desktop and run it. It will create a subdirectory called "Remix" that contains all the files it downloaded.
+Simply move the .exe file to a folder or desktop and run it. It will create a subdirectory called "remix" that contains all the files it downloaded.
+Running it again replaces that install. Only files the downloader installed and nobody changed are deleted; anything you added or edited is kept in a "remix-old-..." folder next to it.
 
 ## Usage
 Execute the script and follow the instructions shown in the window.
